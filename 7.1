@@ -1,0 +1,100 @@
+// -----------------------------
+// 1️⃣ Import Required Modules
+// -----------------------------
+const express = require("express");
+const cors = require("cors");
+
+// -----------------------------
+// 2️⃣ Initialize Express App
+// -----------------------------
+const app = express();
+
+// Enable CORS to allow requests from React frontend
+app.use(cors());
+
+// -----------------------------
+// 3️⃣ Create Sample Product Data
+// -----------------------------
+const products = [
+  { name: "Laptop", price: 1200 },
+  { name: "Mouse", price: 25 },
+  { name: "Keyboard", price: 45 },
+];
+
+// -----------------------------
+// 4️⃣ Define API Endpoint
+// -----------------------------
+// When a GET request is made to /api/products, send the product list
+app.get("/api/products", (req, res) => {
+  res.json(products);
+});
+
+// -----------------------------
+// 5️⃣ Start the Server
+// -----------------------------
+const PORT = 5000; // Backend runs on port 5000
+app.listen(PORT, () => console.log(`✅ Server running on port ${PORT}`));
+
+// -----------------------------
+// 1️⃣ Import Required Packages
+// -----------------------------
+import React, { useEffect, useState } from "react";
+import axios from "axios";
+import "./App.css";
+
+// -----------------------------
+// 2️⃣ Create Main Component
+// -----------------------------
+function App() {
+  // State to store products
+  const [products, setProducts] = useState([]);
+
+  // State for loading and error handling
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  // -----------------------------
+  // 3️⃣ Fetch Data using Axios
+  // -----------------------------
+  useEffect(() => {
+    axios
+      .get("http://localhost:5000/api/products") // Request to backend API
+      .then((res) => {
+        setProducts(res.data); // Save response data
+        setLoading(false);
+      })
+      .catch(() => {
+        setError("⚠️ Failed to fetch data from API");
+        setLoading(false);
+      });
+  }, []); // Empty dependency → runs once on component mount
+
+  // -----------------------------
+  // 4️⃣ Handle Loading and Error States
+  // -----------------------------
+  if (loading) return <h2 className="loading">Loading...</h2>;
+  if (error) return <h2 className="error">{error}</h2>;
+
+  // -----------------------------
+  // 5️⃣ Display Products List
+  // -----------------------------
+  return (
+    <div className="container">
+      <h1 className="title">Product List</h1>
+
+      <div className="product-list">
+        {products.map((product, index) => (
+          <div key={index} className="card">
+            <h3>{product.name}</h3>
+            <p>Price: ${product.price}</p>
+            <button>Buy Now</button>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+export default App;
+
+
