@@ -1,0 +1,86 @@
+// -----------------------------
+// 1️⃣ Import createSlice from Redux Toolkit
+// -----------------------------
+import { createSlice } from "@reduxjs/toolkit";
+
+// -----------------------------
+// 2️⃣ Define Initial State
+// -----------------------------
+const initialState = {
+  items: [], // Array to hold cart items
+};
+
+// -----------------------------
+// 3️⃣ Create Slice
+// -----------------------------
+const cartSlice = createSlice({
+  name: "cart",
+  initialState,
+  reducers: {
+    // Add product to cart
+    addToCart: (state, action) => {
+      const item = action.payload;
+      const existingItem = state.items.find((p) => p.name === item.name);
+      if (existingItem) {
+        existingItem.quantity += 1;
+      } else {
+        state.items.push({ ...item, quantity: 1 });
+      }
+    },
+
+    // Remove product from cart
+    removeFromCart: (state, action) => {
+      state.items = state.items.filter((p) => p.name !== action.payload);
+    },
+
+    // Update product quantity
+    updateQuantity: (state, action) => {
+      const { name, quantity } = action.payload;
+      const existingItem = state.items.find((p) => p.name === name);
+      if (existingItem) {
+        existingItem.quantity = quantity;
+      }
+    },
+  },
+});
+
+// -----------------------------
+// 4️⃣ Export Actions and Reducer
+// -----------------------------
+export const { addToCart, removeFromCart, updateQuantity } = cartSlice.actions;
+export default cartSlice.reducer;
+
+import React from "react";
+import { useDispatch } from "react-redux";
+import { addToCart } from "../features/cartSlice";
+
+const products = [
+  { name: "Laptop", price: 1200 },
+  { name: "Mouse", price: 25 },
+  { name: "Keyboard", price: 45 },
+];
+
+const ProductList = () => {
+  const dispatch = useDispatch();
+
+  return (
+    <div className="product-list">
+      <h2>Products</h2>
+      <div className="cards">
+        {products.map((product, index) => (
+          <div key={index} className="card">
+            <h3>{product.name}</h3>
+            <p>Price: ${product.price}</p>
+            <button onClick={() => dispatch(addToCart(product))}>
+              Add to Cart
+            </button>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+export default ProductList;
+
+
