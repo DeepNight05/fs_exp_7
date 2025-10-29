@@ -1,0 +1,208 @@
+// -----------------------------
+// 1️⃣ Import modules
+// -----------------------------
+const express = require("express");
+const http = require("http");
+const { Server } = require("socket.io");
+const cors = require("cors");
+
+// -----------------------------
+// 2️⃣ Setup Express app and HTTP server
+// -----------------------------
+const app = express();
+app.use(cors()); // allow cross-origin requests (for local dev)
+
+const server = http.createServer(app);
+
+// -----------------------------
+// 3️⃣ Initialize Socket.io
+// -----------------------------
+// Allow connections from React dev server at http://localhost:3000
+const io = new Server(server, {
+  cors: {
+    origin: "http://localhost:3000",
+    methods: ["GET", "POST"],
+  },
+});
+
+// -----------------------------
+// 4️⃣ Basic route (optional)
+// -----------------------------
+app.get("/", (req, res) => {
+  res.send({ status: "Socket.io server running" });
+});
+
+// -----------------------------
+// 5️⃣ Socket.io connection handlers
+// -----------------------------
+io.on("connection", (socket) => {
+  console.log(`User connected: ${socket.id}`);
+
+  // When a client joins (sends their name)
+  socket.on("join", (username) => {
+    socket.username = username; // attach to socket instance
+    // Broadcast to all other clients that someone joined
+    socket.broadcast.emit("message", {
+      user: "System",
+      text: `${username} has joined the chat.`,
+      time: new Date().toISOString(),
+    });
+  });
+
+  // When a chat message is received from a client
+  socket.on("sendMessage", (message, callback) => {
+    const payload = {
+      user: socket.username || "Anonymous",
+      text: message,
+      time: new Date().toISOString(),
+    };
+    // Broadcast to all clients (including sender)
+    io.emit("message", payload);
+    // Acknowledge receipt optionally
+    if (callback) callback("Delivered");
+  });
+
+  // Handle disconnect
+  socket.on("disconnect", () => {
+    console.log(`User disconnected: ${socket.id}`);
+    if (socket.username) {
+      socket.broadcast.emit("message", {
+        user: "System",
+        text: `${socket.username} has left the chat.`,
+        time: new Date().toISOString(),
+      });
+    }
+  });
+});
+
+// -----------------------------
+// 6️⃣ Start server
+// -----------------------------
+const PORT = process.env.PORT || 5000;
+server.listen(PORT, () => {
+  console.log(`✅ Server listening on port ${PORT}`);
+});
+
+// -----------------------------
+// 1️⃣ Imports
+// -----------------------------
+import React, { useEffect, useState, useRef } from "react";
+import { io } from "socket.io-client";
+
+// -----------------------------
+// 2️⃣ Socket initialization
+// (we'll connect after user enters a name)
+// -----------------------------
+const SOCKET_SERVER_URL = "http://localhost:5000";
+
+function App() {
+  // -----------------------------
+  // 3️⃣ Local component state
+  // -----------------------------
+  const [connected, setConnected] = useState(false);
+  const [username, setUsername] = useState("");
+  const [nameSubmitted, setNameSubmitted] = useState(false);
+
+  const [messageInput, setMessageInput] = useState("");
+  const [messages, setMessages] = useState([]);
+
+  const socketRef = useRef(null);
+  const messagesEndRef = useRef(null);
+
+  // -----------------------------
+  // 4️⃣ Scroll to latest message helper
+  // -----------------------------
+  const scrollToBottom = () => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
+    }
+  };
+
+  useEffect(scrollToBottom, [messages]);
+
+  // -----------------------------
+  // 5️⃣ Connect to socket only once when name is submitted
+  // -----------------------------
+  const handleJoin = () => {
+    if (!username.trim()) return;
+    // connect to server
+    const socket = io(SOCKET_SERVER_URL, { transports: ["websocket"] });
+
+    socketRef.current = socket;
+
+    // on initial connection
+    socket.on("connect", () => {
+      setConnected(true);
+      // tell server our username
+      socket.emit("join", username);
+    });
+
+    // listen for incoming messages
+    socket.on("message", (message) => {
+      // message => { user, text, time }
+      setMessages((prev) => [...prev, message]);
+    });
+
+    // on disconnect
+    socket.on("disconnect", () => {
+      setConnected(false);
+    });
+
+    setNameSubmitted(true);
+  };
+
+  // -----------------------------
+  // 6️⃣ Send message to server
+  // -----------------------------
+  const sendMessage = (e) => {
+    e.preventDefault();
+    const text = messageInput.trim();
+    if (!text || !socketRef.current) return;
+
+    // emit to server with optional callback to confirm
+    socketRef.current.emit("sendMessage", text, (status) => {
+      // optional: show delivered status in console or UI
+      // console.log("Server ack:", status);
+    });
+
+    setMessageInput("");
+  };
+
+  // -----------------------------
+  // 7️⃣ Simple timestamp formatter
+  // -----------------------------
+  const formatTime = (isoStr) => {
+    try {
+      const d = new Date(isoStr);
+      return d.toLocaleTimeString();
+    } catch {
+      return "";
+    }
+  };
+
+  // -----------------------------
+  // 8️⃣ UI: name input or chat UI
+  // -----------------------------
+  return (
+    <div className="chat-container">
+      <h1>Real-time Chat (Socket.io)</h1>
+
+      {!nameSubmitted ? (
+        // Name input screen
+        <div className="join-box">
+          <input
+            type="text"
+            placeholder="Enter your name..."
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") handleJoin();
+            }}
+          />
+          <button onClick={handleJoin} disabled={!username.trim()}>
+            Join Chat
+          </button>
+        </div>
+      ) : (
+        // Chat screen
+        <div className="chat-box">
